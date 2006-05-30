@@ -1,0 +1,15 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Simpy
+version:      0.00_0.13
+version_from: lib/Simpy.pm
+installdirs:  site
+requires:
+    AutoLoader:                    5.6
+    constant:                      1.05
+    Exporter:                      5.58
+    LWP::UserAgent:                2.033
+    strict:                        1.03
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.17

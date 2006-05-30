@@ -1,0 +1,6 @@
+Revision history for Perl extension Simpy::API.
+
+0.01  Tue May 30 17:14:13 2006
+	- original version; created by h2xs 1.23 with options
+		-X -n Simpy::API
+
