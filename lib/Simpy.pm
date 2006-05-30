@@ -26,7 +26,7 @@ our @EXPORT = qw(
 	
 );
 
-our $VERSION = "0.00_" . ( (qw$Revision: 1.3 $)[1]/10 );
+our $VERSION = "0.00_" . ( (qw$Revision: 1.4 $)[1]/10 );
 $VERSION = eval $VERSION;
 
 
@@ -56,7 +56,7 @@ Simpy - Perl interface to Simpy social bookmarking service
   my $user = "jack";
   my $pass = "upth3h1ll";
 
-  my $book = Simpy::API->new($user, $pass);
+  my $book = Simpy->new($user, $pass);
   my $tags = $book->GetTags();
 
   print $tags->xml;
@@ -91,19 +91,18 @@ use LWP::UserAgent;
 
 Object construction method.
 
-  my $book = Simpy::API->new;
+  my $book = Simpy->new;
 
-  my $book = Simpy::API->new($user, $pass);
+  my $book = Simpy->new($user);
 
 
 =cut
 
 sub new {
-  my ($class, $user, $pass) = @_;
+  my ($class, $user) = @_;
   my $self = {
     _ua => LWP::UserAgent->new,
     _user => $user,
-    _pass => $pass,
     _tags => undef,
     _status => undef
   };
@@ -127,10 +126,10 @@ Currently, all this does is spit out the XML...
 =cut
 
 sub GetTags {
-  my ($self, $refresh) = @_;
+  my ($self, $pass, $refresh) = @_;
   if (!defined($self->{_tags}) || $referesh) {
     my $req = HTTP::Request->new(GET => API_BASE . "GetTags.do");
-    $req->authorization_basic($self->{_user}, $self->{_pass});
+    $req->authorization_basic($self->{_user}, $pass);
     my $response = $self->{_ua}->request($req);
     if ($response->is_success) {
       $self->{_tags} = $response->content;
@@ -163,19 +162,6 @@ sub user {
   my ($self, $user) = @_;
   $self->{_user} = $user if defined($user);
   return $self->{_user};
-}
-
-head3 pass
-
-SetSimpy password.
-
-  $book->pass($pass);
-
-=cut
-
-sub pass {
-  my ($self, $pass) = @_;
-  $self->{_pass} = $pass if defined($pass);
 }
 
 =head1 CAVEATS
