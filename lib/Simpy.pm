@@ -3,6 +3,7 @@ package Simpy;
 use 5.008007;
 use strict;
 use warnings;
+use XML::Parser;
 
 require Exporter;
 use AutoLoader qw(AUTOLOAD);
@@ -13,7 +14,7 @@ our @ISA = qw(Exporter);
 # names by default without a very good reason. Use EXPORT_OK instead.
 # Do not simply export all your public functions/methods/constants.
 
-# This allows declaration	use Simpy::API ':all';
+# This allows declaration	use Simpy ':all';
 # If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
 # will save memory.
 our %EXPORT_TAGS = ( 'all' => [ qw(
@@ -26,7 +27,7 @@ our @EXPORT = qw(
 	
 );
 
-our $VERSION = "0.00_" . ( (qw$Revision: 1.4 $)[1]/10 );
+our $VERSION = "0.00_" . ( (qw$Revision: 1.15 $)[1]/10 );
 $VERSION = eval $VERSION;
 
 
@@ -95,7 +96,6 @@ Object construction method.
 
   my $book = Simpy->new($user);
 
-
 =cut
 
 sub new {
@@ -124,20 +124,41 @@ Return a list of tags.
 Currently, all this does is spit out the XML...
 
 =cut
+use Data::Dumper;
 
 sub GetTags {
   my ($self, $pass, $refresh) = @_;
-  if (!defined($self->{_tags}) || $referesh) {
+
+  if (!defined($self->{_tags}) || $refresh) {
+
     my $req = HTTP::Request->new(GET => API_BASE . "GetTags.do");
     $req->authorization_basic($self->{_user}, $pass);
     my $response = $self->{_ua}->request($req);
+
     if ($response->is_success) {
-      $self->{_tags} = $response->content;
+      my $p = new XML::Parser(Style => 'Tree');      
+      my $parse = $p->parse($response->content);
+      my @tree = @{@{$parse}[1]};
+      my %hash;
+
+      @tree = splice(@tree,1,$#tree);        # force pop of user element
+
+      while ($#tree > 2) {
+         @tree = splice(@tree,3,$#tree);   # 0, '  ', 'tag'
+
+         my $t = shift @tree;
+         last if !defined($t);
+         my ($n, $c) = ($t->[0]->{'name'}, $t->[0]->{'count'});
+         $hash{$n} = $c;
+      }
+
+      $self->{_tags} = \%hash;
     } else {
       $self->{_status} = $response->status_line;
       warn($response->status_line);
     }
   }
+
   return $self->{_tags};
 }
 
