@@ -1,7 +1,7 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         Simpy
-version:      0.00_0.112
+version:      0.00_0.117
 version_from: lib/Simpy.pm
 installdirs:  site
 requires:

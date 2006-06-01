@@ -27,7 +27,7 @@ our @EXPORT = qw(
 	
 );
 
-our $VERSION = "0.00_" . ( (qw$Revision: 1.15 $)[1]/10 );
+our $VERSION = "0.00_" . ( (qw$Revision: 1.17 $)[1]/10 );
 $VERSION = eval $VERSION;
 
 
@@ -52,17 +52,28 @@ Simpy - Perl interface to Simpy social bookmarking service
 
 =head1 SYNOPSIS
 
+  # deprecated - for testing only
+
   use Simpy;
 
-  my $user = "jack";
-  my $pass = "upth3h1ll";
+  my $user = "demo";
+  my $pass = "demo";
 
-  my $book = Simpy->new($user, $pass);
-  my $tags = $book->GetTags();
+  my $book = Simpy->new($user);
+  my $tags = $book->GetTags($pass);
 
-  print $tags->xml;
+  my %hash = %{$tags};
 
+  # pending - what methods should look like
 
+  use Simpy;
+
+  my $cred = { user => "demo", pass => "demo" };
+ 
+  my $book = new Simpy;
+
+  my $tags = $book->tags($cred) || die $book->status;
+  
 =head1 DESCRIPTION
 
 This module provides a Perl interface to the Simpy social bookmarking
@@ -88,13 +99,11 @@ use LWP::UserAgent;
 
 =head1 METHODS
 
-=head2 new
+=head2 Constructor Method
 
 Object construction method.
 
-  my $book = Simpy->new;
-
-  my $book = Simpy->new($user);
+  my $book = new Simpy;
 
 =cut
 
@@ -121,7 +130,7 @@ the Simpy REST API.
 
 Return a list of tags.
 
-Currently, all this does is spit out the XML...
+Deprecated.
 
 =cut
 use Data::Dumper;
@@ -162,12 +171,18 @@ sub GetTags {
   return $self->{_tags};
 }
 
+=head2 Accessor Methods
+
+=head3 get_status
+
+Deprecated
+
+=cut
+
 sub get_status {
   my ($self, $user) = @_;
   return $self->{_status};
 }
-
-=head2 Accessor Methods
 
 =head3 user
 
@@ -176,6 +191,8 @@ Set and get Simpy username.
    my $user = $book->user;
 
    $book->user($user);
+
+   Deprecated.
 
 =cut
 
@@ -199,7 +216,7 @@ http://www.transpartisanmeshworks.org
 
 =head1 AUTHOR
 
-Beads Land, <lt>beads@beadsland.com<gt>
+Beads Land, beads@beadsland.com
 
 =head1 COPYRIGHT AND LICENSE
 
