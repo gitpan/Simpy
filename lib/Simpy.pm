@@ -1,9 +1,12 @@
 package Simpy;
 
-use 5.008007;
+use 5.006001;
 use strict;
 use warnings;
 use XML::Parser;
+use constant API_BASE => "http://www.simpy.com/simpy/api/rest/";
+use LWP::UserAgent;
+use URI;
 
 require Exporter;
 use AutoLoader qw(AUTOLOAD);
@@ -27,7 +30,7 @@ our @EXPORT = qw(
 	
 );
 
-our $VERSION = "0.00_" . ( (qw$Revision: 1.17 $)[1]/10 );
+our $VERSION = ( (qw$Revision: 1.19 $)[1]/10 );
 $VERSION = eval $VERSION;
 
 
@@ -52,27 +55,27 @@ Simpy - Perl interface to Simpy social bookmarking service
 
 =head1 SYNOPSIS
 
-  # deprecated - for testing only
-
   use Simpy;
 
-  my $user = "demo";
-  my $pass = "demo";
-
-  my $book = Simpy->new($user);
-  my $tags = $book->GetTags($pass);
-
-  my %hash = %{$tags};
-
-  # pending - what methods should look like
-
-  use Simpy;
+  my $sim = new Simpy;
 
   my $cred = { user => "demo", pass => "demo" };
- 
-  my $book = new Simpy;
 
-  my $tags = $book->tags($cred) || die $book->status;
+
+  my $opts = { limit => 10 }; 
+  my $tags = $sim->GetTags($cred, $opts) || die $sim->status;
+
+  foreach my $k (keys %{$tags}) {
+    print "tag $k has a count of " . $tags->{$k} . "\n";
+  }
+
+
+  my $opts = { limit => 10, q = "search" };
+  my $links = $sim->GetTags($cred, $opts) || die $sim->status;
+
+  foreach my $k (keys %{$links}) {
+    print "url $k was added " . $links->{$k}->{addDate} . "\n";
+  }
   
 =head1 DESCRIPTION
 
@@ -94,113 +97,183 @@ None by default.
 
 =cut
 
-use constant API_BASE => "http://www.simpy.com/simpy/api/rest/";
-use LWP::UserAgent;
-
 =head1 METHODS
 
 =head2 Constructor Method
 
-Object construction method.
+Simpy object constructor method.
 
-  my $book = new Simpy;
+  my $s = new Simpy;
 
 =cut
 
 sub new {
   my ($class, $user) = @_;
+
+  # set up
   my $self = {
     _ua => LWP::UserAgent->new,
-    _user => $user,
-    _tags => undef,
-    _status => undef
+    _status => undef,
+    _pa => new XML::Parser(Style => 'Objects'),
+    _message => undef
   };
+
+  # configure our web user agent
   my $agent = $self->{_ua}->agent;
-  $self->{_ua}->agent("Simpy::API $VERSION ($agent)");
+  $self->{_ua}->agent("Simpy.pm $VERSION ($agent)");
+
+  # okay, we can go now
   bless $self, $class;
   return $self;
 }
+
+#
+# internal utility functions - not public methods
+#
+
+sub do_rest {
+   my ($self, $do, $cred, $qry) = @_;
+
+   # set up our REST query
+   my $uri = URI->new_abs($do, API_BASE);
+   $uri->query_form($qry);
+   my $req = HTTP::Request->new(GET => $uri);
+   $req->authorization_basic($cred->{'user'}, $cred->{'pass'});
+
+   # talk to the REST server
+   my $ua = $self->{"_ua"};
+   my $resp = $ua->request($req);
+   $self->{_status} = $resp->status_line;
+
+   # return document, or undef if not successful   
+   return $resp->content if ($resp->is_success);
+}     
+
+
+use Data::Dumper;
+
+sub read_response {
+   my ($self, $xml) = @_;
+
+   # parse the xml to get 
+   my $p = $self->{_pa};
+   my $anon = $p->parse($xml);
+
+   # get Kids of the first xml object therein (there should only be one)
+   my $obj = @{$anon}[0];
+   my @kids = @{$obj->{Kids}};
+
+   # set message if one was returned
+
+
+
+   # return those kids as an array
+   return @kids;
+}
+
+
+=head2 Accessor Methods
+=head3 $s->status
+Return the HTTP status of the last call to the Simpy REST server.
+=cut
+
+sub status {
+  my ($self) = @_;
+  return $self->{_status};
+}
+
+sub message {
+  my ($self) = @_;
+  return $self->{_message};
+}
+
+
 
 =head2 API Methods
 
 Simpy API methods follow the naming conventions established as part of 
 the Simpy REST API.
 
-=head3 GetTags
-
+=head3 $s->GetTags($cred, $opts)
 Return a list of tags.
-
-Deprecated.
-
 =cut
 use Data::Dumper;
 
 sub GetTags {
-  my ($self, $pass, $refresh) = @_;
+  my ($self, $cred, $opts) = @_;
 
-  if (!defined($self->{_tags}) || $refresh) {
+  my $xml = do_rest($self, "GetTags.do", $cred, $opts);
+  return unless $xml;
 
-    my $req = HTTP::Request->new(GET => API_BASE . "GetTags.do");
-    $req->authorization_basic($self->{_user}, $pass);
-    my $response = $self->{_ua}->request($req);
-
-    if ($response->is_success) {
-      my $p = new XML::Parser(Style => 'Tree');      
-      my $parse = $p->parse($response->content);
-      my @tree = @{@{$parse}[1]};
-      my %hash;
-
-      @tree = splice(@tree,1,$#tree);        # force pop of user element
-
-      while ($#tree > 2) {
-         @tree = splice(@tree,3,$#tree);   # 0, '  ', 'tag'
-
-         my $t = shift @tree;
-         last if !defined($t);
-         my ($n, $c) = ($t->[0]->{'name'}, $t->[0]->{'count'});
-         $hash{$n} = $c;
-      }
-
-      $self->{_tags} = \%hash;
-    } else {
-      $self->{_status} = $response->status_line;
-      warn($response->status_line);
-    }
+  my @kids = read_response($self, $xml);  
+  my %tags;
+  foreach my $k (@kids) {
+    my $name = $k->{name};
+    next unless (defined $name);
+    my $count = $k->{count};
+    $tags{$name} = $count;
   }
 
-  return $self->{_tags};
+  return \%tags;
 }
 
-=head2 Accessor Methods
+sub RenameTag {
+  my ($self, $cred, $opts) = @_;
 
-=head3 get_status
+  my $xml = do_rest($self, "RenameTag.do", $cred, $opts);
+  return unless $xml;
 
-Deprecated
+  print $xml;
 
+  return read_response($self, $xml);
+}
+
+=head3 $s->GetLinks($cred, $opts)
+Return a list of links.
 =cut
 
-sub get_status {
-  my ($self, $user) = @_;
-  return $self->{_status};
+sub GetLinks {
+  my ($self, $cred, $opts) = @_;
+
+  my $xml = do_rest($self, "GetLinks.do", $cred, $opts);
+  return unless $xml;
+
+  my @kids = read_response($self, $xml);  
+
+  my %links;
+  foreach my $k (@kids) {
+    next unless (ref $k eq "Simpy::link");
+
+    my %hash;
+    $hash{'accessType'} = $k->{accessType};
+    my @prop = @{$k->{Kids}};
+
+    foreach my $p (@prop) {
+      my $ref = ref $p;
+      next if ($ref eq "Simpy::Characters");
+      $ref =~ s/^Simpy:://;
+      my $obj = $p->{Kids};
+
+      if ($ref eq 'tags') {
+        my @tags;
+        foreach $t (@{$obj}) {
+          next if (ref $t eq "Simpy::Characters");
+          push @tags, $t->{Kids}->[0]->{'Text'};          
+        }
+        $hash{$ref} = \@tags;
+      } elsif (defined $obj->[0]) {
+        $hash{$ref} = $obj->[0]->{'Text'};
+      }
+    }
+
+    my $url = $hash{'url'};
+    $links{$url} = \%hash;
+  }
+
+  return \%links;   
 }
 
-=head3 user
 
-Set and get Simpy username.
-
-   my $user = $book->user;
-
-   $book->user($user);
-
-   Deprecated.
-
-=cut
-
-sub user {
-  my ($self, $user) = @_;
-  $self->{_user} = $user if defined($user);
-  return $self->{_user};
-}
 
 =head1 CAVEATS
 
@@ -223,9 +296,8 @@ Beads Land, beads@beadsland.com
 Copyright (C) 2006 by Beads Land
 
 This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.7 or,
-at your option, any later version of Perl 5 you may have available.
-
+it under the same terms as Perl itself, either Perl version 5.6.1 or,
+at your option, any later version of Perl you may have available.
 
 =cut
 

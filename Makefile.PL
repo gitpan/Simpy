@@ -1,4 +1,4 @@
-use 5.008007;
+use 5.006001;
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -11,7 +11,8 @@ WriteMakefile(
                            AutoLoader => 5.60,
                            constant => 1.05,
                            LWP::UserAgent => 2.033,
-			   XML::Parser => 2.34
+			   XML::Parser => 2.34,
+                           URI => 1.35
                            
                          }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
